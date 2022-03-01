@@ -38,7 +38,7 @@ public class FootballBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasCallbackQuery()) {
+        if (update.hasCallbackQuery()) {                                 //нажатие на кнопку
             handleCallback(update.getCallbackQuery());
         }
         if (update.hasMessage()) {
@@ -154,6 +154,23 @@ public class FootballBot extends TelegramLongPollingBot {
         }
     }
 
+    private ArrayList<KeyboardRow> menuPanel() {
+        ArrayList<KeyboardRow> keyboardRows = new ArrayList<>();
+        KeyboardRow keyboardRow1 = new KeyboardRow();
+        KeyboardRow keyboardRow2 = new KeyboardRow();
+
+        keyboardRow1.add("\u26BD Лиги");
+        keyboardRow1.add("\uD83D\uDD25 Избранное");
+        keyboardRow2.add("\uD83D\uDCF0 Футбольные новости");
+
+        keyboardRows.add(keyboardRow1);
+        keyboardRows.add(keyboardRow2);
+
+
+        return keyboardRows;
+    }
+
+
     @SneakyThrows
     private void handleMessage(Message message) {
         if (message.hasText() && message.hasEntities()) {
@@ -163,6 +180,22 @@ public class FootballBot extends TelegramLongPollingBot {
             if (commandEntity.isPresent()) {
                 String command = message.getText().substring(commandEntity.get().getOffset(), commandEntity.get().getLength());
                 switch (command) {
+                    case "/start":
+                        execute(SendMessage.builder()
+                                .text("Футбол")
+                                .chatId(message.getChatId().toString())
+                                .replyMarkup(ReplyKeyboardMarkup.builder().keyboard(menuPanel()).build())
+                                .build());
+                        break;
+                    case "/show_news":
+                        execute(SendMessage.builder().text("Важные новости").chatId(message.getChatId().toString()).build());
+                        //TODO
+                        break;
+                    case "/set_favorite":
+                        execute(SendMessage.builder().text("Избранное").chatId(message.getChatId().toString()).build());
+                        //TODO
+                        break;
+
                     case "/show_leagues":
                         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
                         Leagues originalLeagues = leaguesInfoPressButton.getOriginalLegues(message.getChatId());
