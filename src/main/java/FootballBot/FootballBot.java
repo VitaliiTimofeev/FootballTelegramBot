@@ -6,22 +6,26 @@ import org.checkerframework.checker.units.qual.K;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.MessageEntity;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import javax.security.auth.kerberos.KerberosKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 public class FootballBot extends TelegramLongPollingBot {
-
+    private final DataBaseFootball db = new DataBaseFootball();
     private final LeaguesInfoPressButton leaguesInfoPressButton = LeaguesInfoPressButton.getInstance();
 
     @Override
@@ -50,11 +54,10 @@ public class FootballBot extends TelegramLongPollingBot {
         Message message = callbackQuery.getMessage();
         String parameter = callbackQuery.getData();
         System.out.println(parameter);
-        if (parameter.contains("Назад League")){
-
-            showLeagues(message, parameter.split(" ")[2]);
-        } else if (parameter.contains("League")){
-//            editChoose(parameter.split(" ")[1], message);
+        if (parameter.contains("BackToLeague")) {
+            showLeagues(message, parameter.split(" ")[1]);
+        } else if (parameter.contains("LeagueInfo")) {
+            editChoose(parameter.split(" ")[1], message);
             leagueInfo(parameter.split(" ")[1], message);
         } else if (parameter.contains("Бомбардиры")) {
             showBombardiers(parameter.split(" ")[1], message);
@@ -222,8 +225,8 @@ public class FootballBot extends TelegramLongPollingBot {
 
 
     @SneakyThrows
-    private void showLeagues(Message message, String parameter){
-
+    private void showLeagues(Message message, String parameter) {
+        System.out.println("ShowLeagues");
         Leagues newLeagues = Leagues.valueOf(parameter);
 
         leaguesInfoPressButton.setOriginalLeagues(message.getChatId(), newLeagues);
@@ -234,7 +237,7 @@ public class FootballBot extends TelegramLongPollingBot {
         for (Leagues leagues : Leagues.values()) {
             buttons.add(Arrays.asList(
                     InlineKeyboardButton.builder()
-                            .text(getLeaguesButton(originalLeagues, leagues)).callbackData("League " + leagues.toString()).build()
+                            .text(getLeaguesButton(originalLeagues, leagues)).callbackData("LeagueInfo " + leagues.toString()).build()
 
             ));
 
@@ -251,8 +254,7 @@ public class FootballBot extends TelegramLongPollingBot {
     }
 
     @SneakyThrows
-    private void editChoose(String parameter, Message message){
-        System.out.println(parameter + " choose");
+    private void editChoose(String parameter, Message message) {
         Leagues newLeagues = Leagues.valueOf(parameter);
         leaguesInfoPressButton.setOriginalLeagues(message.getChatId(), newLeagues);
 
@@ -262,7 +264,7 @@ public class FootballBot extends TelegramLongPollingBot {
         for (Leagues leagues : Leagues.values()) {
             buttons.add(Arrays.asList(
                     InlineKeyboardButton.builder()
-                            .text(getLeaguesButton(originalLeagues, leagues)).callbackData("League " + leagues.toString()).build()
+                            .text(getLeaguesButton(originalLeagues, leagues)).callbackData("LeagueInfo " + leagues.toString()).build()
 
             ));
 
@@ -270,21 +272,42 @@ public class FootballBot extends TelegramLongPollingBot {
 
 
         execute(EditMessageReplyMarkup.builder()
-                .chatId(message.getChatId().toString())
+                .chatId(message.getChatId().toString()).messageId(message.getMessageId())
                 .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
                 .build()
         );
 
     }
+
+
+
+
     @SneakyThrows
-    private void leagueInfo(String name, Message message){
+    private void leagueInfo(String name, Message message) {
         System.out.println(name);
-        String textBody = "This info about " + name;
-//        switch (name){
-//            case "PremierLeague":
-//                textBody = "This info about PremierLeague";
-//
-//        }
+        String textBody = "This info about " + name + "\n\n";
+
+        ConnectApi connectApi = new ConnectApi();
+        switch (name){
+            case "PremierLeague":
+                textBody += connectApi.getRating(Leagues.PremierLeague.getId());
+                break;
+            case "BundesLiga":
+                textBody += connectApi.getRating(Leagues.BundesLiga.getId());
+                break;
+            case "LaLiga":
+                textBody += connectApi.getRating(Leagues.LaLiga.getId());
+                break;
+            case "SerieA":
+                textBody += connectApi.getRating(Leagues.SerieA.getId());
+                break;
+            case "Ligue1":
+                textBody += connectApi.getRating(Leagues.Ligue1.getId());
+                break;
+
+        }
+
+
 
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
         buttons.add(Arrays.asList(
@@ -302,10 +325,9 @@ public class FootballBot extends TelegramLongPollingBot {
 
         buttons.add(Arrays.asList(
                 InlineKeyboardButton.builder()
-                        .text("Назад").callbackData("Назад League " + name).build()
+                        .text("Назад").callbackData("BackToLeague " + name).build()
 
         ));
-
 
 
         execute(SendMessage.builder().text(textBody)
@@ -353,6 +375,7 @@ public class FootballBot extends TelegramLongPollingBot {
                 String command = message.getText().substring(commandEntity.get().getOffset(), commandEntity.get().getLength());
                 switch (command) {
                     case "/start":
+                        db.insertUser(message.getChatId().intValue());
                         execute(SendMessage.builder()
                                 .text("Футбол")
                                 .chatId(message.getChatId().toString())
@@ -377,7 +400,7 @@ public class FootballBot extends TelegramLongPollingBot {
                         for (Leagues leagues : Leagues.values()) {
                             buttons.add(Arrays.asList(
                                     InlineKeyboardButton.builder()
-                                            .text(getLeaguesButton(originalLeagues, leagues)).callbackData("League " + leagues.toString()).build()
+                                            .text(leagues.toString()).callbackData("LeagueInfo " + leagues.toString()).build()
                             ));
 
                         }
@@ -391,7 +414,8 @@ public class FootballBot extends TelegramLongPollingBot {
             }
 
         }
-       /* if (message.hasText()){
+
+        if (message.hasText()) {
             String messageText = message.getText();
             System.out.println(messageText);
             switch (messageText) {
